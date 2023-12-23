@@ -18,3 +18,5 @@
 ## TODO
 - complete `Percentage` including 1
 - add more arithmetic operations
+- change `Percentage` to base 2
+- remove `module Decimal` (alternative: to base 2)
