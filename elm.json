@@ -1,0 +1,28 @@
+{
+    "type": "package",
+    "name": "lue-bird/elm-number-safe",
+    "summary": "number types that aren't opaque",
+    "license": "MIT",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Sign",
+        "N0able",
+        "Natural",
+        "Integer",
+        "Decimal",
+        "Percentage",
+        "Fraction"
+    ],
+    "elm-version": "0.19.1 <= v < 20.0.0",
+    "dependencies": {
+        "elm/core": "1.0.5 <= v < 2.0.0",
+        "lue-bird/elm-allowable-state": "1.0.2 <= v < 2.0.0",
+        "lue-bird/elm-bits": "9.0.2 <= v < 10.0.0",
+        "lue-bird/elm-bounded-nat": "35.0.0 <= v < 36.0.0",
+        "lue-bird/elm-emptiness-typed": "9.2.1 <= v < 10.0.0",
+        "lue-bird/elm-linear-direction": "11.2.0 <= v < 12.0.0",
+        "lue-bird/elm-no-record-type-alias-constructor-function": "1.0.8 <= v < 2.0.0",
+        "lue-bird/elm-partial-or-complete": "1.0.2 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}
