@@ -6,12 +6,12 @@
     "version": "1.0.0",
     "exposed-modules": [
         "Sign",
+        "Negatable",
         "N0able",
-        "Natural",
         "Integer",
         "Decimal",
         "Percentage",
-        "Fraction"
+        "Rational"
     ],
     "elm-version": "0.19.1 <= v < 20.0.0",
     "dependencies": {
@@ -24,5 +24,7 @@
         "lue-bird/elm-no-record-type-alias-constructor-function": "1.0.8 <= v < 2.0.0",
         "lue-bird/elm-partial-or-complete": "1.0.2 <= v < 2.0.0"
     },
-    "test-dependencies": {}
+    "test-dependencies": {
+        "elm-explorations/test": "2.1.2 <= v < 3.0.0"
+    }
 }

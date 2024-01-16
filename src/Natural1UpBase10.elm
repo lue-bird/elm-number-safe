@@ -1,10 +1,10 @@
 module Natural1UpBase10 exposing
-    ( Natural1UpBase10
-    , fromIntPositive
+    ( fromIntPositive
     , fromBase2, toBase2
+    , N1Up
     )
 
-{-| Package-internal helpers for [`Natural.N1Up`](Natural#N1Up)
+{-| Package-internal helpers for [`Integer.N1Up`](Natural#N1Up)
 but represented as it's decimal digits.
 **Should not be exposed**
 
@@ -23,22 +23,22 @@ but represented as it's decimal digits.
 -}
 
 import Bit exposing (Bit)
+import Integer
 import Linear
 import List.Linear
 import N exposing (Add1, In, N, N0, N1, N9, On, Up0, Up9, n0, n1, n10, n2, n9)
 import N.Local exposing (N19)
-import Natural
 import RecordWithoutConstructorFunction exposing (RecordWithoutConstructorFunction)
 
 
-type alias Natural1UpBase10 =
+type alias N1Up =
     RecordWithoutConstructorFunction
         { first : N (In N1 N9)
         , afterFirst : List (N (In N0 N9))
         }
 
 
-toBase2 : Natural1UpBase10 -> Natural.N1Up
+toBase2 : N1Up -> Integer.N1Up
 toBase2 =
     \naturalAtLeast1Base10 ->
         let
@@ -50,7 +50,7 @@ toBase2 =
                     |> List.reverse
         in
         base2Digits
-            |> bitsUnpad
+            |> bitsToN1Up
             -- not possible because the base10 number is ≥ 1
             |> Maybe.withDefault
                 -- 1
@@ -145,8 +145,8 @@ digitsUnpad =
                         first :: afterFirst
 
 
-bitsUnpad : List Bit -> Maybe Natural.N1Up
-bitsUnpad =
+bitsToN1Up : List Bit -> Maybe Integer.N1Up
+bitsToN1Up =
     \bits ->
         case bits of
             [] ->
@@ -155,18 +155,13 @@ bitsUnpad =
             first :: afterFirst ->
                 case first of
                     Bit.O ->
-                        afterFirst |> bitsUnpad
+                        bitsToN1Up afterFirst
 
                     Bit.I ->
                         Just { bitsAfterI = afterFirst }
 
 
-add :
-    Natural1UpBase10
-    ->
-        (Natural1UpBase10
-         -> Natural1UpBase10
-        )
+add : N1Up -> (N1Up -> N1Up)
 add toAdd =
     \naturalAtLeast1Base10 ->
         let
@@ -200,7 +195,7 @@ add toAdd =
                 }
 
 
-toDigits : Natural1UpBase10 -> List (N (In N0 N9))
+toDigits : N1Up -> List (N (In N0 N9))
 toDigits =
     \naturalAtLeast1Base10 ->
         (naturalAtLeast1Base10.first |> N.inToOn |> N.minTo0 |> N.inToNumber)
@@ -270,7 +265,7 @@ addDigits toAdd =
         }
 
 
-fromBase2 : Natural.N1Up -> Natural1UpBase10
+fromBase2 : Integer.N1Up -> N1Up
 fromBase2 =
     \digits ->
         digits.bitsAfterI
@@ -286,20 +281,20 @@ fromBase2 =
                 (fromDigit n1)
 
 
-fromDigit : N (In (On (Add1 maxX_)) (N.Up maxTo9_ N.To N9)) -> Natural1UpBase10
+fromDigit : N (In (On (Add1 maxX_)) (N.Up maxTo9_ N.To N9)) -> N1Up
 fromDigit digit =
     { first = digit |> digitToNumber ( n1, n9 )
     , afterFirst = []
     }
 
 
-multiplyBy2 : Natural1UpBase10 -> Natural1UpBase10
+multiplyBy2 : N1Up -> N1Up
 multiplyBy2 =
     \naturalAtLeast1Base10 ->
         naturalAtLeast1Base10 |> add naturalAtLeast1Base10
 
 
-fromIntPositive : Int -> Natural1UpBase10
+fromIntPositive : Int -> N1Up
 fromIntPositive =
     \int ->
         let

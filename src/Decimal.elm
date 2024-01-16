@@ -1,19 +1,18 @@
 module Decimal exposing
-    ( Signed, SignedAbsolute(..), N1Up
-    , Exception(..)
+    ( Above0Up(..), N1Up
     , fromFloat
     , ceiling, floor, truncate
-    , toFloat, orExceptionToFloat, exceptionToFloat, exceptionToString
+    , toFloat
+    , FloatException(..)
     )
 
 {-| Arbitrarily precise floating point number
-with the explicit _option_ of allowing of [exceptions](Decimal#Exception) or not.
+which is [`Negatable`](Negatable#Negatable), [`N0able`]
 
-Cannot represent decimals with a period (infinitely repeating digits after the decimal point).
-To represent decimals with a period without loss of precision, use a [fraction](Fraction)
+The type cannot represent decimals with a period (infinitely repeating digits after the decimal point).
+To represent decimals with a period without losing information, use a [rational](Rational)
 
-@docs Signed, SignedAbsolute, N1Up
-@docs Exception
+@docs Above0Up, N1Up
 
 
 ## create
@@ -28,7 +27,7 @@ To represent decimals with a period without loss of precision, use a [fraction](
 
 ## transform
 
-@docs toFloat, orExceptionToFloat, exceptionToFloat, exceptionToString
+@docs toFloat
 
 The type is rarely useful in its current state,
 as the only thing you can do is convert from and to other types.
@@ -43,38 +42,30 @@ import Emptiable exposing (Emptiable)
 import Integer
 import N exposing (In, N, N0, N9, n0, n1, n9)
 import N0able exposing (N0able)
-import Natural
 import Natural1UpBase10
+import Negatable exposing (Negatable)
 import Percentage exposing (PercentageAbove0ToBelow1)
 import Possibly exposing (Possibly)
 import RecordWithoutConstructorFunction exposing (RecordWithoutConstructorFunction)
-import Sign exposing (Sign(..))
+import Sign
 import Stack exposing (Stacked)
 
 
-{-| A signed floating point number.
+{-| What comes after its [`Sign`](Sign#Sign). Used in types like
+
+    N0able (Negatable Decimal.Above0Up Possibly) Possibly
 
 Don't shy away from spinning your own version of this if needed, like
 
     type FieldException
         = DivisionByZeroResult
-        | Infinity Sign
+        | InfinityNegative
+        | InfinityPositive
 
-    Result FieldException (N0able Decimal.Signed Possibly)
-
-See also [`Decimal.Exception`](Decimal#Exception)
+    Result FieldException (N0able (Negatable Decimal.Above0Up Possibly) Possibly)
 
 -}
-type alias Signed =
-    RecordWithoutConstructorFunction
-        { sign : Sign
-        , absolute : SignedAbsolute
-        }
-
-
-{-| What comes after its [`Sign`](Sign#Sign)
--}
-type SignedAbsolute
+type Above0Up
     = PercentageAbove0ToBelow1 PercentageAbove0ToBelow1
     | N1Up N1Up
 
@@ -83,33 +74,19 @@ type SignedAbsolute
 -}
 type alias N1Up =
     RecordWithoutConstructorFunction
-        { whole : Natural.N1Up
+        { whole : Integer.N1Up
         , afterDecimalPoint : N0able PercentageAbove0ToBelow1 Possibly
         }
-
-
-{-| Non-number calculation result, see also [IEEE 754 number exception states](#Exception)
-
-`Result Exception Decimal` for example is like an [`elm/core` `Float`](https://dark.elm.dmy.fr/packages/elm/core/latest/Basics#Float)
-except
-
-  - [`Exception`](#Exception)s are an explicit case so you can easily extract a [`Decimal`](Decimal#Decimal)
-  - it can have arbitrary decimal points, see [`Decimal`](Decimal#Decimal)
-
--}
-type Exception
-    = NaN
-    | Infinity Sign
 
 
 
 --
 
 
-{-| Remove the [`Fraction`](#Fraction) part after the decimal point `.`
+{-| Remove the [`Rational`](#Rational) part after the decimal point `.`
 to create an [`Integer`](Integer#Integer)
 -}
-truncate : N0able Signed n0PossiblyOrNever_ -> N0able Integer.Signed Possibly
+truncate : N0able (Negatable Above0Up negative) n0PossiblyOrNever_ -> N0able (Negatable Integer.N1Up negative) Possibly
 truncate =
     \decimal ->
         case decimal of
@@ -117,11 +94,11 @@ truncate =
                 N0able.n0
 
             N0able.Not0 signed ->
-                signed |> signedTruncate
+                signed |> negatableTruncate
 
 
-signedTruncate : Signed -> N0able Integer.Signed Possibly
-signedTruncate =
+negatableTruncate : Negatable Above0Up negative -> N0able (Negatable Integer.N1Up negative) Possibly
+negatableTruncate =
     \signed ->
         case signed.absolute of
             PercentageAbove0ToBelow1 _ ->
@@ -136,7 +113,7 @@ signedTruncate =
 
 {-| Its nearest lower [`Integer`](Integer#Integer) number
 -}
-floor : N0able Signed n0PossiblyOrNever_ -> N0able Integer.Signed Possibly
+floor : N0able (Negatable Above0Up negative) n0PossiblyOrNever_ -> N0able (Negatable Integer.N1Up negative) Possibly
 floor =
     \decimal ->
         case decimal of
@@ -147,7 +124,7 @@ floor =
                 signed |> signedFloor
 
 
-signedFloor : Signed -> N0able Integer.Signed Possibly
+signedFloor : Negatable Above0Up negative -> N0able (Negatable Integer.N1Up negative) Possibly
 signedFloor =
     \signed ->
         case signed.absolute of
@@ -159,17 +136,17 @@ signedFloor =
                     { sign = signed.sign
                     , absolute =
                         case signed.sign of
-                            Positive ->
+                            Sign.Positive ->
                                 atLeast1.whole
 
-                            Negative ->
-                                atLeast1.whole |> Natural.add Natural.n1 |> N0able.toNot0
+                            Sign.Negative _ ->
+                                atLeast1.whole |> Integer.add Integer.n1 |> N0able.toNot0
                     }
 
 
 {-| Its nearest greater [`Integer`](Integer#Integer) number
 -}
-ceiling : N0able Signed n0PossiblyOrNever_ -> N0able Integer.Signed Possibly
+ceiling : N0able (Negatable Above0Up negative) n0PossiblyOrNever_ -> N0able (Negatable Integer.N1Up negative) Possibly
 ceiling =
     \decimal ->
         case decimal of
@@ -180,17 +157,17 @@ ceiling =
                 signed |> signedCeiling
 
 
-signedCeiling : Signed -> N0able Integer.Signed Possibly
+signedCeiling : Negatable Above0Up negative -> N0able (Negatable Integer.N1Up negative) Possibly
 signedCeiling =
     \signed ->
         case signed.absolute of
             PercentageAbove0ToBelow1 _ ->
                 case signed.sign of
-                    Positive ->
+                    Sign.Positive ->
                         N0able.Not0
-                            { sign = signed.sign, absolute = Natural.n1 |> N0able.toNot0 }
+                            { sign = signed.sign, absolute = Integer.n1 |> N0able.toNot0 }
 
-                    Negative ->
+                    Sign.Negative _ ->
                         N0able.n0
 
             N1Up atLeast1 ->
@@ -198,39 +175,36 @@ signedCeiling =
                     { sign = signed.sign
                     , absolute =
                         case signed.sign of
-                            Positive ->
-                                atLeast1.whole |> Natural.add Natural.n1 |> N0able.toNot0
+                            Sign.Positive ->
+                                atLeast1.whole |> Integer.add Integer.n1 |> N0able.toNot0
 
-                            Negative ->
+                            Sign.Negative _ ->
                                 atLeast1.whole
                     }
 
 
-{-| Print an [`Exception`](#Exception)
+{-| Non-number calculation result, see also [IEEE 754 number exception states](#Exception).
+
+Used to safely convert [`fromFLoat`](#fromFLoat)
+
 -}
-exceptionToString : Exception -> String
-exceptionToString =
-    \exception ->
-        case exception of
-            NaN ->
-                "NaN"
-
-            Infinity Sign.Negative ->
-                "negative infinity"
-
-            Infinity Sign.Positive ->
-                "positive infinity"
+type FloatException
+    = NaN
+    | Infinity (Sign.Negatable Possibly)
 
 
 {-| Convert from an [`elm/core` `Float`](https://dark.elm.dmy.fr/packages/elm/core/latest/Basics#Float).
+
 Don't be surprised to find more precise representations in [`Decimal`](#Decimal)-land
 
     -9999.124 |> Decimal.fromFloat
     --→ Ok with the Decimal representation of
     --→ 999.1239999999997962731868028640747070312
 
+For safety, [`fromFloat`](#fromFloat) can return [IEEE 754 number exception states](#FloatException).
+
 -}
-fromFloat : Float -> Result Exception (N0able Signed Possibly)
+fromFloat : Float -> Result FloatException (N0able (Negatable Above0Up Possibly) Possibly)
 fromFloat =
     \float_ ->
         if float_ |> Basics.isNaN then
@@ -240,10 +214,10 @@ fromFloat =
             Err
                 (Infinity
                     (if float_ < 0 then
-                        Negative
+                        Sign.Negative Possibly.Possible
 
                      else
-                        Positive
+                        Sign.Positive
                     )
                 )
 
@@ -253,7 +227,7 @@ fromFloat =
 
 {-| **Should not be exposed**
 -}
-fromNonExceptionFloat : Float -> N0able Signed Possibly
+fromNonExceptionFloat : Float -> N0able (Negatable Above0Up Possibly) Possibly
 fromNonExceptionFloat =
     \float_ ->
         if float_ == 0 then
@@ -273,10 +247,10 @@ fromNonExceptionFloat =
             N0able.Not0
                 { sign =
                     if float_ < 0 then
-                        Negative
+                        Sign.Negative Possibly.Possible
 
                     else
-                        Positive
+                        Sign.Positive
                 , absolute =
                     case wholeAbsolute of
                         0 ->
@@ -285,17 +259,18 @@ fromNonExceptionFloat =
                         wholeAbsoluteExcept0 ->
                             { whole =
                                 wholeAbsoluteExcept0 |> Natural1UpBase10.fromIntPositive |> Natural1UpBase10.toBase2
-                            , fraction =
+                            , rational =
                                 let
-                                    floatFraction =
+                                    floatAfterDecimalPoint : Float
+                                    floatAfterDecimalPoint =
                                         floatAbsolute - (wholeAbsoluteExcept0 |> Basics.toFloat)
                                 in
-                                if floatFraction == 0 then
+                                if floatAfterDecimalPoint == 0 then
                                     Nothing
 
                                 else
-                                    -- floatFraction /= 0
-                                    floatFraction
+                                    -- floatRational /= 0
+                                    floatAfterDecimalPoint
                                         |> Basics.abs
                                         |> floatToAfterDecimalPoint
                                         |> Just
@@ -307,7 +282,7 @@ fromNonExceptionFloat =
 floatToAfterDecimalPoint : Float -> PercentageAbove0ToBelow1
 floatToAfterDecimalPoint =
     \float ->
-        case float |> floatFractionToBase10 |> unpadLeading0Digits of
+        case float |> floatRationalToBase10 |> unpadLeading0Digits of
             [] ->
                 { beforeEnd = [], end = n1 |> N.maxTo n9 |> N.inToNumber }
 
@@ -322,8 +297,8 @@ floatToAfterDecimalPoint =
                 }
 
 
-floatFractionToBase10 : Float -> List (N (In N0 N9))
-floatFractionToBase10 =
+floatRationalToBase10 : Float -> List (N (In N0 N9))
+floatRationalToBase10 =
     \float ->
         if float == 0 then
             []
@@ -340,7 +315,7 @@ floatFractionToBase10 =
             in
             (digit |> N.intToIn ( n0, n9 ) |> N.inToNumber)
                 :: ((floatShifted1Digit - (digit |> Basics.toFloat))
-                        |> floatFractionToBase10
+                        |> floatRationalToBase10
                    )
 
 
@@ -360,56 +335,13 @@ unpadLeading0Digits =
                         digit0 :: digits1Up
 
 
-{-| NaN, infinity or [`Decimal.toFloat`](#toFloat)
-
-Keep in mind that `Decimal -> Float` can be lossy
-since `Float` is fixed in bit size while [`Decimal`](Decimal#Decimal) is not
-
--}
-orExceptionToFloat : Result Exception (N0able Signed possiblyOrNever_) -> Float
-orExceptionToFloat =
-    \decimalOrException ->
-        case decimalOrException of
-            Err exception ->
-                exception |> exceptionToFloat
-
-            Ok decimal ->
-                decimal |> toFloat
-
-
-{-| infinity/NaN represented as a `Float`
--}
-exceptionToFloat : Exception -> Float
-exceptionToFloat =
-    \exception ->
-        case exception of
-            NaN ->
-                floatNaN
-
-            Infinity Sign.Positive ->
-                floatInfinity
-
-            Infinity Sign.Negative ->
-                -floatInfinity
-
-
-floatNaN : Float
-floatNaN =
-    0.0 / 0.0
-
-
-floatInfinity : Float
-floatInfinity =
-    1.0 / 0.0
-
-
 {-| Convert to a `Float`
 
 Keep in mind that `DecimalOrException -> Float` can be lossy
 since `Float` is fixed in bit size while a [decimal](Decimal) is not
 
 -}
-toFloat : N0able Signed possiblyToNever_ -> Float
+toFloat : N0able (Negatable Above0Up negativePossiblyOrNever_) possiblyToNever_ -> Float
 toFloat =
     \decimal ->
         case decimal of
@@ -421,16 +353,16 @@ toFloat =
                     toSigned : number -> number
                     toSigned =
                         case numberSigned.sign of
-                            Negative ->
+                            Sign.Negative _ ->
                                 Basics.negate
 
-                            Positive ->
+                            Sign.Positive ->
                                 Basics.abs
                 in
                 numberSigned.absolute |> signedAbsoluteToFloat |> toSigned
 
 
-signedAbsoluteToFloat : SignedAbsolute -> Float
+signedAbsoluteToFloat : Above0Up -> Float
 signedAbsoluteToFloat =
     \absolute ->
         case absolute of
@@ -441,11 +373,11 @@ signedAbsoluteToFloat =
                 let
                     wholeFloat : Float
                     wholeFloat =
-                        atLeast1.whole |> N0able.Not0 |> Natural.n0UpToN |> N.toFloat
+                        atLeast1.whole |> N0able.Not0 |> Integer.n0UpToN |> N.toFloat
                 in
-                case atLeast1.fraction of
+                case atLeast1.rational of
                     Nothing ->
                         wholeFloat
 
-                    Just fraction_ ->
-                        wholeFloat + (fraction_ |> Percentage.toFloat)
+                    Just rational_ ->
+                        wholeFloat + (rational_ |> Percentage.toFloat)

@@ -1,29 +1,62 @@
 module Sign exposing
-    ( Sign(..)
+    ( Negatable(..)
+    , compare
     , opposite, multiplyBy
+    , negativeAdapt
     )
 
 {-| Negative or positive.
 
-@docs Sign
+@docs Negatable
+
+
+## observe
+
+@docs compare
 
 
 ## alter
 
 @docs opposite, multiplyBy
 
+
+### type-level
+
+@docs negativeAdapt
+
 -}
+
+import Possibly exposing (Possibly)
 
 
 {-| A number's sign
 
-  - minus-signed: `Negative`
+  - minus-signed: `Negative Possibly|Never`
   - plus-signed: `Positive`
 
 -}
-type Sign
-    = Negative
+type Negatable negativePossiblyOrNever
+    = Negative negativePossiblyOrNever
     | Positive
+
+
+{-| Order the [signs](#Negatable) as `Negative ... < Positive`
+-}
+compare : ( Negatable aNegative_, Negatable bNegative_ ) -> Order
+compare =
+    \signs ->
+        case signs of
+            ( Positive, Positive ) ->
+                Basics.EQ
+
+            ( Negative _, Positive ) ->
+                Basics.LT
+
+            ( Positive, Negative _ ) ->
+                Basics.GT
+
+            ( Negative _, Negative _ ) ->
+                Basics.EQ
 
 
 {-| Flip the [`Sign`](#Sign) `Negative` ↔ `Positive`
@@ -32,30 +65,43 @@ type Sign
         N0able.not0Map (\s -> { s | sign = opposite s.sign })
 
 -}
-opposite : Sign -> Sign
+opposite : Negatable negativePossiblyOrNever_ -> Negatable Possibly
 opposite =
     \sign ->
         case sign of
-            Negative ->
+            Negative _ ->
                 Positive
 
             Positive ->
-                Negative
+                Negative Possibly.Possible
 
 
 {-| The resulting of sign when multiplying numbers with given signs.
 -}
-multiplyBy : Sign -> (Sign -> Sign)
+multiplyBy : Negatable negativePossiblyOrNever -> (Negatable negativePossiblyOrNever -> Negatable negativePossiblyOrNever)
 multiplyBy factorSign =
     \sign ->
         case sign of
             Positive ->
                 factorSign
 
-            Negative ->
+            Negative possible ->
                 case factorSign of
-                    Negative ->
+                    Negative _ ->
                         Positive
 
                     Positive ->
-                        Negative
+                        Negative possible
+
+
+negativeAdapt :
+    (negativePossiblyOrNever -> adaptedNegative0PossiblyOrNever)
+    -> (Negatable negativePossiblyOrNever -> Negatable adaptedNegative0PossiblyOrNever)
+negativeAdapt n0PossiblyOrNeverChange =
+    \sign ->
+        case sign of
+            Negative possiblyOrNever ->
+                possiblyOrNever |> n0PossiblyOrNeverChange |> Negative
+
+            Positive ->
+                Positive
